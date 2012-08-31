@@ -8,5 +8,6 @@
                   stdlib,
                   sasl
                  ]},
+  {mod, {glacier_server_app, []}},
   {env, []}
  ]}.

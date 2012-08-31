@@ -1,0 +1,29 @@
+## WARNING:
+## This file will be replaced with an environment specific version on deploy.
+## The following settings are only relevant for local development.
+
+## Name of the node
+-name glacier-server@127.0.0.1
+
+## Cookie for distributed erlang
+-setcookie glacier-server
+
+## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
+## (Disabled by default..use with caution!)
+##-heart
+
+## increase the maximum number of allowed processes inside the VM
++P 500000
+
+## Enable kernel poll and a async threads
++K true
++A 8
+
+## Log the warning log level as warning instead of error
++W w
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 8192
+
+## Tweak GC to run more often
+-env ERL_FULLSWEEP_AFTER 10
