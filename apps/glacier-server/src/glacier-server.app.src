@@ -1,0 +1,12 @@
+{application, 'glacier-server',
+ [
+  {description, "Web service to upload IO streams to Amazon Glacier"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  sasl
+                 ]},
+  {env, []}
+ ]}.
