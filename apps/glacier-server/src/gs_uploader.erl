@@ -1,20 +1,24 @@
 -module(gs_uploader).
 -behaviour(gen_server).
 
+-include("glacier_server.hrl").
+
 %% AWS Glacier allows a maximum of 10,000 parts per upload, so the
 %% PART_SIZE will determine the biggest archive size that can be
 %% uploaded by this service, e.g. 128 MB part size will allow an
 %% archive size of up to ~1.2 TB.
 -define(PART_SIZE, (128 * 1024 * 1024)). % 128 MB
 
--record(state, {cmd, port, parts}).
+-define(CONNECT_TIMEOUT, 1000).
+
+-record(state, {cmd, port, socket, parts}).
 -record(part, {start, len, upload_state, status}).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start/1, info/1]).
+-export([start/2, info/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -26,8 +30,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start(Cmd) ->
-    gen_server:start(?MODULE, [Cmd], []).
+start(Cmd, TcpPort) ->
+    gen_server:start(?MODULE, [Cmd, TcpPort], []).
 
 info(Uploader) ->
     gen_server:call(Uploader, info).
@@ -36,9 +40,15 @@ info(Uploader) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init([Cmd]) ->
-    Port = open_port({spawn, Cmd}, [stream, exit_status, use_stdio, in, binary]),
-    {ok, #state{cmd = Cmd, port = Port, parts = []}}.
+init([Cmd, TcpPort]) ->
+    Port = open_port(
+        {spawn, "sh -c '" ++ Cmd ++ "' "
+                "| nc -4l localhost " ++ ?i2l(TcpPort)},
+        [stream, exit_status, use_stdio, stderr_to_stdout, in, binary]),
+
+    {ok, Socket} = connect_socket(TcpPort),
+
+    {ok, #state{cmd = Cmd, port = Port, socket = Socket, parts = []}}.
 
 handle_call(info, _From, State) ->
     {reply, state_to_info(State), State};
@@ -48,11 +58,24 @@ handle_call(Request, _From, State) ->
 handle_cast(Msg, State) ->
     {stop, {unhandled_cast, Msg}, State}.
 
-handle_info({Port, {data, Data}}, #state{port = Port, parts = []} = State) ->
+
+handle_info({tcp, Socket, Data}, #state{socket = Socket, parts = []} = State) ->
+error_logger:info_msg("Received ~p bytes of data (~p more msgs pending)~n", [byte_size(Data), process_info(self(), message_queue_len)]),
     initiate_upload(),
+    inet:setopts(Socket, [{active,once}]),
     {noreply, State#state{parts = initiate_part(Data, [])}};
-handle_info({Port, {data, Data}}, #state{port = Port, parts = Parts} = State) ->
+handle_info({tcp, Socket, Data}, #state{socket = Socket, parts = Parts} = State) ->
+error_logger:info_msg("Received ~p bytes of data (~p more msgs pending)~n", [byte_size(Data), process_info(self(), message_queue_len)]),
+    inet:setopts(Socket, [{active,once}]),
     {noreply, State#state{parts = do_upload(Data, Parts)}};
+handle_info({tcp_closed, Socket}, #state{socket = Socket} = State) ->
+    %% @todo take note that the socket was closed and wait for the port to exit
+    error_logger:info_msg("TCP Socket ~p was closed~n", [Socket]),
+    {noreply, State};
+
+
+handle_info({Port, {data, Data}}, #state{port = Port} = State) ->
+    {stop, {unexpected_data, Data}, State};
 handle_info({Port, {exit_status, 0}}, #state{port = Port} = State) ->
     {stop, normal, State};
 handle_info({Port, {exit_status, Status}}, #state{port = Port} = State) ->
@@ -62,9 +85,14 @@ handle_info({'EXIT', Port, Reason}, #state{port = Port} = State) ->
 handle_info(Info, State) ->
     {stop, {unhandled_info, Info}, State}.
 
+
 terminate(normal, _State) ->
     error_logger:info_msg("gs_uploader: port cmd completed successfully~n", []),
     finalize_upload(),
+    ok;
+terminate({unexpected_data, Data}, _State) ->
+    error_logger:info_msg("gs_uploader: port sent unexpted data:~n~p~n", [Data]),
+    abort_upload(),
     ok;
 terminate({port_terminated, Reason}, _State) ->
     error_logger:info_msg("gs_uploader: port terminated with posixcode ~p~n", [Reason]),
@@ -127,6 +155,7 @@ initiate_part(Data, Done) ->
 
 upload_data(#part{len = Len, upload_state = _US} = Current, Data) ->
     %% @todo send chunked data to socket (get UploadState from initiate_part)
+error_logger:info_msg("Simulating upload delay for ~p bytes of data~n", [byte_size(Data)]), timer:sleep(2000),
     Current#part{len = Len + byte_size(Data)}.
 
 finalize_part(#part{upload_state = _US} = Current, Data) ->
@@ -142,3 +171,19 @@ split_data(Data, Len) ->
 
 state_to_info(#state{cmd = Cmd, parts = Parts}) ->
     {Cmd, lists:reverse([{L, S} || #part{len = L, status = S} <- Parts])}.
+
+connect_socket(TcpPort) ->
+    connect_socket(TcpPort, 3).
+connect_socket(_TcpPort, 0) ->
+    {error, econnrefused};
+connect_socket(TcpPort, RetriesLeft) ->
+    case gen_tcp:connect(localhost, TcpPort,
+                    [binary, {packet, 0}, {active, once}], ?CONNECT_TIMEOUT) of
+        {error, econnrefused} ->
+            timer:sleep(500),
+            connect_socket(TcpPort, RetriesLeft -1);
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Socket} ->
+            {ok, Socket}
+    end.
