@@ -23,4 +23,19 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    {ok, { {one_for_one, 5, 10}, [webserver()]} }.
+
+
+%% ===================================================================
+%% Internal functions
+%% ===================================================================
+
+webserver() ->
+    MiddlewareConfig = [ {mods, [ {gp_http, []} ]} ],
+
+    {webserver,
+     {elli, start_link, [[{port, gp_config:port()},
+                          {callback, elli_middleware},
+                          {callback_args, MiddlewareConfig},
+                          {name, {local, elli}}]]},
+     permanent, 2000, worker, [elli]}.

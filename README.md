@@ -25,13 +25,13 @@ its default port of 8001.
 
 #### JSON Response
 
-    {[{"jobId":"example1",
-       "command":"upload",
-       "bytesDone:1234",
-       "bytesTotal":4321,  // only when the request had a Content-Length header
-       "status":"active",
-       "msg":"extended human readable message for the status"},
-      ...]}
+    {"jobs":[{"jobId":"example1",
+              "command":"upload",
+              "bytesDone:1234",
+              "bytesTotal":4321,  // when the request sent Content-Length header
+              "status":"active",
+              "msg":"extended human readable message for the status"},
+             ...]}
 
 
 ### Upload New Archive
