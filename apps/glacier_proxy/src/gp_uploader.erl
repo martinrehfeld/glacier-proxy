@@ -1,7 +1,7 @@
--module(gs_uploader).
+-module(gp_uploader).
 -behaviour(gen_server).
 
--include("glacier_server.hrl").
+-include("glacier_proxy.hrl").
 
 %% AWS Glacier allows a maximum of 10,000 parts per upload, so the
 %% PART_SIZE will determine the biggest archive size that can be

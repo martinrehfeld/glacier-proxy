@@ -1,0 +1,15 @@
+{application, glacier_proxy,
+ [
+  {description, "Web service to proxy streaming uploads to Amazon Glacier via"
+                " a simple REST API (simple enough to use it with curl on the"
+                " command line)"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  sasl
+                 ]},
+  {mod, {glacier_proxy_app, []}},
+  {env, []}
+ ]}.

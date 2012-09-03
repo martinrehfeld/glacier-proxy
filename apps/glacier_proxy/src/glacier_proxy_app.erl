@@ -1,4 +1,4 @@
--module(glacier_server_app).
+-module(glacier_proxy_app).
 
 -behaviour(application).
 
@@ -10,7 +10,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    glacier_server_sup:start_link().
+    glacier_proxy_sup:start_link().
 
 stop(_State) ->
     ok.

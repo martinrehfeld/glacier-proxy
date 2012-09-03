@@ -1,4 +1,4 @@
--module(glacier_server_sup).
+-module(glacier_proxy_sup).
 
 -behaviour(supervisor).
 
