@@ -31,7 +31,12 @@ init([]) ->
 %% ===================================================================
 
 webserver() ->
-    MiddlewareConfig = [ {mods, [ {gp_http, []} ]} ],
+    MiddlewareConfig = [{mods, [{elli_access_log, [{ident, 'glacier-proxy'},
+                                                   {facility, local7}]},
+                                {elli_date, []},
+                                {gp_http,   []}
+                               ]}
+                       ],
 
     {webserver,
      {elli, start_link, [[{port, gp_config:port()},

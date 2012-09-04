@@ -10,6 +10,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
+    lager:start(),
     glacier_proxy_sup:start_link().
 
 stop(_State) ->
