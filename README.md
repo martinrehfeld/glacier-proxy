@@ -57,7 +57,7 @@ a compressed and encrypted version of `mypreciousfile`.
 
     gzip myfile | \
       openssl enc -aes-256-cbc -salt -pass pass:secretkey | \
-      curl -X POST --upload-file myfile \
+      curl -X POST --upload-file - \
         http://localhost:8001/vault/myvault?job_id=example2
 
 To be able to verify the content `sha1` in the proxy response, we can caclulate
@@ -66,7 +66,7 @@ a SHA1 on the fly by making use of Bash process substitution like this:
     gzip myfile | \
       openssl enc -aes-256-cbc -salt -pass pass:secretkey | \
       tee >(shasum > shasum.txt) | \
-      curl -X POST --upload-file myfile \
+      curl -X POST --upload-file - \
         http://localhost:8001/vault/myvault?job_id=example3
 
 Afterwards we can compare the SHA in `shasum.txt` to the one in the JSON
