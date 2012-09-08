@@ -16,15 +16,15 @@ handle(Req, State) ->
     {Path, Req}    = cowboy_http_req:path(Req),
     {Params, Req2} = cowboy_http_req:qs_vals(Req),
 
-    {Status, Headers, Body} =
+    {Status, Headers, Body, Req3} =
         case Method of
             'GET'  -> get(Path, Params, Req2);
             'POST' -> post(Path, Params, Req2);
             Method -> not_found(Method, Path, Params, Req2)
         end,
 
-    {ok, Req3} = cowboy_http_req:reply(Status, Headers, Body, Req2),
-    {ok, Req3, State}.
+    {ok, Req4} = cowboy_http_req:reply(Status, Headers, Body, Req3),
+    {ok, Req4, State}.
 
 terminate(_Req, _State) ->
     ok.
@@ -34,7 +34,7 @@ terminate(_Req, _State) ->
 %% Request routing
 %% ===================================================================
 
-get([<<"status">>], [], _Req) ->
+get([<<"status">>], [], Req) ->
 
     %% {"jobs":[{"jobId":"example1",
     %%           "command":"upload",
@@ -50,7 +50,7 @@ get([<<"status">>], [], _Req) ->
 
     {200,
      [{<<"Content-Type">>, <<"application/json">>}],
-     jiffy:encode(DummyReply)};
+     jiffy:encode(DummyReply), Req};
 
 get(Path, Params, Req) -> not_found('GET', Path, Params, Req).
 
@@ -68,7 +68,7 @@ post([<<"vault">>, Vault], _Params, Req) ->
 
     {200,
      [{<<"Content-Type">>, <<"application/json">>}],
-     jiffy:encode(DummyReply)};
+     jiffy:encode(DummyReply), Req2};
 
 post(Path, Params, Req) -> not_found('POST', Path, Params, Req).
 
@@ -77,8 +77,8 @@ post(Path, Params, Req) -> not_found('POST', Path, Params, Req).
 %% Internal functions
 %% ===================================================================
 
-not_found(_Method, _Path, _Params, _Req) ->
-    {404, [], <<"Not found">>}.
+not_found(_Method, _Path, _Params, Req) ->
+    {404, [], <<"Not found">>, Req}.
 
 
 %% @doc for testing chunked requests only, @todo move into some upload handler
