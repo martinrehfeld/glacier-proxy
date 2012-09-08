@@ -23,24 +23,9 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, [webserver()]} }.
+    {ok, { {one_for_one, 5, 10}, []} }.
 
 
 %% ===================================================================
 %% Internal functions
 %% ===================================================================
-
-webserver() ->
-    MiddlewareConfig = [{mods, [{elli_access_log, [{ident, 'glacier-proxy'},
-                                                   {facility, local7}]},
-                                {elli_date, []},
-                                {gp_http,   []}
-                               ]}
-                       ],
-
-    {webserver,
-     {elli, start_link, [[{port, gp_config:port()},
-                          {callback, elli_middleware},
-                          {callback_args, MiddlewareConfig},
-                          {name, {local, elli}}]]},
-     permanent, 2000, worker, [elli]}.

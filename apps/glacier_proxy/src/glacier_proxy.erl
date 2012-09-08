@@ -2,6 +2,10 @@
 
 -behaviour(application).
 
+-define(ANYHOST, '_').
+-define(ANYPATH, '_').
+
+
 %% API
 -export([start/0, stop/0]).
 
@@ -22,7 +26,15 @@ stop()  -> application:stop(?MODULE).
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    lager:start(),
+    ok = lager:start(),
+    ok = application:start(cowboy),
+
+    Dispatch = [ {?ANYHOST, [{?ANYPATH, gp_http, []}]} ],
+    {ok, _} = cowboy:start_listener(http, 100,
+        cowboy_tcp_transport, [{port, gp_config:port()}],
+        cowboy_http_protocol, [{dispatch, Dispatch}]
+    ),
+
     glacier_proxy_sup:start_link().
 
 stop(_State) ->
