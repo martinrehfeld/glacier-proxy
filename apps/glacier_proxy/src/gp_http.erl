@@ -56,14 +56,15 @@ get(Path, Params, Req) -> not_found('GET', Path, Params, Req).
 
 
 post([<<"vault">>, Vault], _Params, Req) ->
+    {ok, {Sha, Sha256}, Req2} = process_body(Req),
+
     DummyReply = {
-        [{<<"sha1">>, <<"f572d396fae9206628714fb2ce00f72e94f2258f">>},
+        [{<<"sha1">>, Sha},
+         {<<"sha256">>, Sha256},
          {<<"date">>, <<"Sun, 2 Sep 2012 12:00:00 GMT">>},
          {<<"archiveId">>, <<"EXAMPLEArchiveId">>},
          {<<"location">>, <<"/12345678/vaults/", Vault/binary, "/archives/EXAMPLEArchiveId">>}]
     },
-
-    ok = process_body(cowboy_http_req:stream_body(Req)),
 
     {200,
      [{<<"Content-Type">>, <<"application/json">>}],
@@ -81,8 +82,13 @@ not_found(_Method, _Path, _Params, _Req) ->
 
 
 %% @doc for testing chunked requests only, @todo move into some upload handler
-process_body({ok, Data, Req}) ->
+process_body(Req) ->
+    Sha = gp_chksum:sha_init(),
+    Sha256 = gp_chksum:sha256_init(),
+    process_body(cowboy_http_req:stream_body(Req), {Sha, Sha256}).
+process_body({ok, Data, Req}, {Sha, Sha256}) ->
     error_logger:info_msg("Got body chunk with ~p bytes~n", [byte_size(Data)]),
-    process_body(cowboy_http_req:stream_body(Req));
-process_body({done, _Req}) ->
-    ok.
+    process_body(cowboy_http_req:stream_body(Req),
+        {gp_chksum:sha_update(Sha, Data), gp_chksum:sha256_update(Sha256, Data)});
+process_body({done, Req}, {Sha, Sha256}) ->
+    {ok, {gp_chksum:sha_final(Sha), gp_chksum:sha256_final(Sha256)}, Req}.
