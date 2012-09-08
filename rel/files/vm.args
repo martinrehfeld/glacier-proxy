@@ -1,9 +1,5 @@
-## WARNING:
-## This file will be replaced with an environment specific version on deploy.
-## The following settings are only relevant for local development.
-
 ## Name of the node
--name glacier-proxy@127.0.0.1
+-sname glacier-proxy
 
 ## Cookie for distributed erlang
 -setcookie glacier-proxy

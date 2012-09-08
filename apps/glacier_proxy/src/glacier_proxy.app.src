@@ -10,6 +10,6 @@
                   stdlib,
                   sasl
                  ]},
-  {mod, {glacier_proxy_app, []}},
+  {mod, {glacier_proxy, []}},
   {env, []}
  ]}.
