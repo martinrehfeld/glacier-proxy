@@ -12,12 +12,10 @@
 -define(URL, ?b2l(<<"https://", ?HOST/binary, ?PATH/binary>>)).
 -define(TIMEOUT, 5000).
 -define(CONTENT_FILE, "rebar").
--define(CONTENT_LENGTH, <<"102179">>).
 -define(CONTENT_SHA256, <<"09daa49651fe4f4a4e7a369d55eef3da7c26f679943d3a2863f8e75b4d80dc13">>).
 -define(TREE_HASH, ?CONTENT_SHA256).
 -define(NEWLINE, <<10>>).
 -define(TS_FMT, "~4.10.0b~2.10.0b~2.10.0bT~2.10.0b~2.10.0b~2.10.0bZ").
--define(ISO8601_FMT, "~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ").
 
 -define(ACCESS_KEY, gp_config:aws_access_key_id()).
 -define(SECRET_ACCESS_KEY, gp_config:aws_secret_access_key()).
@@ -45,14 +43,11 @@
 upload_archive() ->
     Date = erlang:universaltime(),
     Hdrs = [
-        {<<"Host">>, ?HOST},
-        {<<"Date">>, iso8601_date(Date)},
         {<<"x-amz-glacier-version">>, ?VERSION},
         {<<"x-amz-date">>, timestamp(Date)},
         {<<"x-amz-archive-description">>, <<"Glacier Proxy test.">>},
         {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
-        {<<"x-amz-content-sha256">>, ?CONTENT_SHA256},
-        {<<"Content-Length">>, ?CONTENT_LENGTH}
+        {<<"x-amz-content-sha256">>, ?CONTENT_SHA256}
     ],
     SignedHdrs =
         [{<<"Authorization">>,
@@ -62,7 +57,7 @@ upload_archive() ->
     {ok, Body} = file:read_file(?CONTENT_FILE),
 
     Response = lhttpc:request(?URL, post, SignedHdrs, Body, ?TIMEOUT),
-    error_logger:info_msg("Resonse is: ~p~n", [Response]),
+    error_logger:info_msg("Response is: ~p~n", [Response]),
     Response.
 
 %% Successful response: {ok, {Code, Hdrs, Body}}
@@ -164,6 +159,3 @@ timestamp({{Year, Month, Day}, {Hour, Minute, Second}}) ->
 
 datestamp(Date) ->
     binary:part(timestamp(Date), 0, 8).
-
-iso8601_date({{Year, Month, Day}, {Hour, Minute, Second}}) ->
-    list_to_binary(io_lib:format(?ISO8601_FMT, [Year, Month, Day, Hour, Minute, Second])).
