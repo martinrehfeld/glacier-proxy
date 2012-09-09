@@ -2,16 +2,20 @@
 
 -include("glacier_proxy.hrl").
 
--define(ACCOUNT, <<"-">>).
+-define(ACCOUNT, (gp_config:aws_account_number())).
 -define(VAULT, <<"homenet-files">>).
 -define(REGION, <<"eu-west-1">>).
 -define(SERVICE, <<"glacier">>).
 -define(VERSION, <<"2012-06-01">>).
 -define(HOST, <<?SERVICE/binary, $., ?REGION/binary, ".amazonaws.com">>).
 -define(PATH, <<$/, ?ACCOUNT/binary, "/vaults/", ?VAULT/binary, "/archives">>).
+-define(PATH_MULTI_INIT, <<$/, ?ACCOUNT/binary, "/vaults/", ?VAULT/binary, "/multipart-uploads">>).
 -define(URL, ?b2l(<<"https://", ?HOST/binary, ?PATH/binary>>)).
+-define(URL_MULTI_INIT, ?b2l(<<"https://", ?HOST/binary, ?PATH_MULTI_INIT/binary>>)).
 -define(TIMEOUT, 5000).
 -define(CONTENT_FILE, "rebar").
+-define(CONTENT_RANGE, <<"bytes 0-102178/*">>).
+-define(CONTENT_LENGTH, <<"102179">>).
 -define(CONTENT_SHA256, <<"09daa49651fe4f4a4e7a369d55eef3da7c26f679943d3a2863f8e75b4d80dc13">>).
 -define(TREE_HASH, ?CONTENT_SHA256).
 -define(NEWLINE, <<10>>).
@@ -22,6 +26,8 @@
 
 %% API
 -export([upload_archive/0]).
+-export([upload_archive_init/0, upload_archive_update/1, upload_archive_final/1]).
+-export([do_multi_upload/0]).
 
 
 %% ===================================================================
@@ -47,16 +53,13 @@ upload_archive() ->
         {<<"x-amz-date">>, timestamp(Date)},
         {<<"x-amz-archive-description">>, <<"Glacier Proxy test.">>},
         {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
-        {<<"x-amz-content-sha256">>, ?CONTENT_SHA256}
+        {<<"x-amz-content-sha256">>, ?CONTENT_SHA256},
+        {<<"Authorization">>, sign(<<"POST">>, ?HOST, ?PATH, ?VERSION, Date, ?CONTENT_SHA256)}
     ],
-    SignedHdrs =
-        [{<<"Authorization">>,
-                sign(<<"POST">>, ?HOST, ?PATH, ?VERSION, Date, ?CONTENT_SHA256)}
-         | Hdrs],
 
     {ok, Body} = file:read_file(?CONTENT_FILE),
 
-    Response = lhttpc:request(?URL, post, SignedHdrs, Body, ?TIMEOUT),
+    Response = lhttpc:request(?URL, post, Hdrs, Body, ?TIMEOUT),
     error_logger:info_msg("Response is: ~p~n", [Response]),
     Response.
 
@@ -72,17 +75,100 @@ upload_archive() ->
 %%     <<"{}">>}}
 
 
+upload_archive_init() ->
+    Date = erlang:universaltime(),
+    Hdrs = [
+        {<<"x-amz-glacier-version">>, ?VERSION},
+        {<<"x-amz-date">>, timestamp(Date)},
+        {<<"x-amz-archive-description">>, <<"Glacier Proxy test.">>},
+        {<<"x-amz-part-size">>, <<"1048576">>},
+        {<<"Authorization">>, sign(<<"POST">>, ?HOST, ?PATH_MULTI_INIT, ?VERSION, Date)}
+    ],
+
+    {ok, {{201, _}, ResponseHdrs, _}} = Response = lhttpc:request(?URL_MULTI_INIT, post, Hdrs, [], ?TIMEOUT),
+    error_logger:info_msg("Initiate Multi Upload Response is: ~p~n", [Response]),
+    {ok, ResponseHdrs}.
+
+%% {ok,{{201,"Created"},
+%%      [{"Date","Sun, 09 Sep 2012 14:41:50 GMT"},
+%%       {"Content-Length","2"},
+%%       {"Content-Type","application/json"},
+%%       {"Location", "/618081757537/vaults/homenet-files/multipart-uploads/S1ekbiEErLIPQCQHZyNGdpMw7zwY0WQfp8-A6Xah6Xf7tGmSvKCm8lna2llg9SjCDAEolze9FqEpR1vKKNUT1gm6doNi"},
+%%       {"x-amz-multipart-upload-id", "S1ekbiEErLIPQCQHZyNGdpMw7zwY0WQfp8-A6Xah6Xf7tGmSvKCm8lna2llg9SjCDAEolze9FqEpR1vKKNUT1gm6doNi"},
+%%       {"X-Amzn-Requestid", "lTGV_hPzjXe-YcIbyveE2vnLZOQZ58mfRUtDmyWrgH3i0VE"}],
+%%      <<"{}">>}}
+
+upload_archive_update(Context) ->
+    Date = erlang:universaltime(),
+
+    Path = ?l2b(proplists:get_value("Location", Context)),
+    Url = ?b2l(<<"https://", ?HOST/binary, Path/binary>>),
+
+    Hdrs = [
+        {<<"x-amz-glacier-version">>, ?VERSION},
+        {<<"x-amz-date">>, timestamp(Date)},
+        {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
+        {<<"x-amz-content-sha256">>, ?CONTENT_SHA256},
+        {<<"Content-Range">>, ?CONTENT_RANGE},
+        {<<"Content-Length">>, ?CONTENT_LENGTH},
+        {<<"Content-Type">>, <<"application/octet-stream">>},
+        {<<"Authorization">>, sign(<<"PUT">>, ?HOST, Path, ?VERSION, Date, ?CONTENT_SHA256)}
+    ],
+
+    {ok, Body} = file:read_file(?CONTENT_FILE),
+
+    {ok, {{204, _}, _responsehdrs, _}} = Response = lhttpc:request(Url, put, Hdrs, Body, ?TIMEOUT),
+    error_logger:info_msg("Upload Part Response is: ~p~n", [Response]),
+    Context.
+
+%% {ok,{{204,"No Content"},
+%%      [{"Date","Sun, 09 Sep 2012 15:14:54 GMT"},
+%%       {"x-amz-sha256-tree-hash","09daa49651fe4f4a4e7a369d55eef3da7c26f679943d3a2863f8e75b4d80dc13"},
+%%       {"X-Amzn-Requestid","J3lHX-bnL6xSVpuLl3J6TtZtYQvFT-dwr0suig2jnbUrvLI"}],
+%%      <<>>}}
+
+upload_archive_final(Context) ->
+    Date = erlang:universaltime(),
+
+    Path = ?l2b(proplists:get_value("Location", Context)),
+    Url = ?b2l(<<"https://", ?HOST/binary, Path/binary>>),
+
+    Hdrs = [
+        {<<"x-amz-glacier-version">>, ?VERSION},
+        {<<"x-amz-date">>, timestamp(Date)},
+        {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
+        {<<"x-amz-archive-size">>, ?CONTENT_LENGTH},
+        {<<"Authorization">>, sign(<<"POST">>, ?HOST, Path, ?VERSION, Date)}
+    ],
+
+    {ok, {{201, _}, _ResponseHdrs, _}} = Response = lhttpc:request(Url, post, Hdrs, [], ?TIMEOUT),
+    error_logger:info_msg("Complete Multi Upload Response is: ~p~n", [Response]),
+    Response.
+
+
+do_multi_upload() ->
+    {ok, Context} = upload_archive_init(),
+    NewContext = upload_archive_update(Context),
+    upload_archive_final(NewContext).
+
 %% ===================================================================
 %% Internal functions
 %% ===================================================================
 
+sign(Method, Host, Path, Version, Date) ->
+    CR = canonical_request(Method, Host, Path, Version, Date),
+    error_logger:info_msg("CR is: ~p~n", [CR]),
+    STS = string_to_sign(CR, Date),
+    error_logger:info_msg("STS is: ~p~n", [STS]),
+    DerivedKey = derived_key(?SECRET_ACCESS_KEY, Date),
+    Signature = signature(DerivedKey, STS),
+    authorization(?ACCESS_KEY, Signature, Date).
+
 sign(Method, Host, Path, Version, Date, ContentSha) ->
     CR = canonical_request(Method, Host, Path, Version, Date, ContentSha),
-    %% error_logger:info_msg("CR is: ~p~n", [CR]),
-
+    error_logger:info_msg("CR is: ~p~n", [CR]),
     STS = string_to_sign(CR, Date),
-    %% error_logger:info_msg("STS is: ~p~n", [STS]),
-
+    error_logger:info_msg("STS is: ~p~n", [STS]),
     DerivedKey = derived_key(?SECRET_ACCESS_KEY, Date),
     Signature = signature(DerivedKey, STS),
     authorization(?ACCESS_KEY, Signature, Date).
@@ -97,6 +183,21 @@ sign(Method, Host, Path, Version, Date, ContentSha) ->
 %% x-amz-glacier-version:2012-06-01
 %%
 %% host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version
+
+canonical_request(Method, Host, Path, Version, Date) ->
+    Timestamp = timestamp(Date),
+    ContentSha = gp_chksum:sha256(<<>>),
+
+    <<Method/binary, ?NEWLINE/binary,
+      Path/binary, ?NEWLINE/binary,
+      ?NEWLINE/binary,
+      "host:", Host/binary, ?NEWLINE/binary,
+      "x-amz-content-sha256:", ?NEWLINE/binary,
+      "x-amz-date:", Timestamp/binary, ?NEWLINE/binary,
+      "x-amz-glacier-version:", Version/binary, ?NEWLINE/binary,
+      ?NEWLINE/binary,
+      "host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version", ?NEWLINE/binary,
+      ContentSha/binary>>.
 
 canonical_request(Method, Host, Path, Version, Date, ContentSha) ->
     Timestamp = timestamp(Date),
