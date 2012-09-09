@@ -1,3 +1,11 @@
+%% AWS config shorthand macros
+-define(ACCOUNT, (gp_config:aws_account_number())).
+-define(REGION, (gp_config:aws_region())).
+-define(SERVICE, <<"glacier">>).
+-define(VERSION, <<"2012-06-01">>).
+-define(ENDPOINT, <<?SERVICE/binary, $., ?REGION/binary, ".amazonaws.com">>).
+
+
 %% conversion helpers
 -define(i2l(I), integer_to_list(I)).
 -define(l2a(I), list_to_atom(I)).

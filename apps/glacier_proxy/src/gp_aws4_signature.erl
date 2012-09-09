@@ -2,13 +2,8 @@
 
 -include("glacier_proxy.hrl").
 
--define(REGION, <<"eu-west-1">>).
--define(SERVICE, <<"glacier">>).
--define(VERSION, <<"2012-06-01">>).
 -define(NEWLINE, <<10>>).
--define(TS_FMT, "~4.10.0b~2.10.0b~2.10.0bT~2.10.0b~2.10.0b~2.10.0bZ").
 
--define(ACCOUNT, (gp_config:aws_account_number())).
 -define(ACCESS_KEY, (gp_config:aws_access_key_id())).
 -define(SECRET_ACCESS_KEY, (gp_config:aws_secret_access_key())).
 
@@ -61,7 +56,7 @@ canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha) 
     canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha, true).
 
 canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha, IncludeContentSha) ->
-    Timestamp = timestamp(Date),
+    Timestamp = gp_util:timestamp(Date),
 
     Part1 = <<Method/binary, ?NEWLINE/binary,
               Path/binary, ?NEWLINE/binary,
@@ -90,8 +85,8 @@ canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha, 
 
 string_to_sign(CR, Date) ->
     Hash = gp_chksum:sha256(CR),
-    Timestamp = timestamp(Date),
-    Datestamp = datestamp(Date),
+    Timestamp = gp_util:timestamp(Date),
+    Datestamp = gp_util:datestamp(Date),
 
     <<"AWS4-HMAC-SHA256", ?NEWLINE/binary,
       Timestamp/binary, ?NEWLINE/binary,
@@ -101,7 +96,7 @@ string_to_sign(CR, Date) ->
 
 %% derived key = HMAC(HMAC(HMAC(HMAC("AWS4" + YourSecretAccessKey,"20120525"),"us-east-1"),"glacier"),"aws4_request"))
 derived_key(SecretAccessKey, Date) ->
-    Datestamp = datestamp(Date),
+    Datestamp = gp_util:datestamp(Date),
 
     HMAC1 = gp_chksum:hmac256_digest(<<"AWS4", SecretAccessKey/binary>>, Datestamp),
     HMAC2 = gp_chksum:hmac256_digest(HMAC1, ?REGION),
@@ -116,18 +111,10 @@ signature(DerivedKey, STS) ->
 %% SignedHeaders=host;x-amz-date;x-amz-glacier-version,
 %% Signature=3ce5b2f2fffac9262b4da9256f8d086b4aaf42eba5f111c21681a65a127b7c2a
 authorization(AccessKey, SignedHeaders, Signature, Date) ->
-    Datestamp = datestamp(Date),
+    Datestamp = gp_util:datestamp(Date),
 
     <<"AWS4-HMAC-SHA256 ",
       "Credential=", AccessKey/binary, $/, Datestamp/binary, $/,
                      ?REGION/binary, $/, ?SERVICE/binary, "/aws4_request,"
       "SignedHeaders=", SignedHeaders/binary, ",",
       "Signature=", Signature/binary>>.
-
-
-timestamp({{Year, Month, Day}, {Hour, Minute, Second}}) ->
-    list_to_binary(io_lib:format(?TS_FMT, [Year, Month, Day, Hour, Minute, Second])).
-
-datestamp(Date) ->
-    binary:part(timestamp(Date), 0, 8).
-
