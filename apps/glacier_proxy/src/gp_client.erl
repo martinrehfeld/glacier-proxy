@@ -132,10 +132,10 @@ string_to_sign(CR, Date) ->
 derived_key(SecretAccessKey, Date) ->
     Datestamp = datestamp(Date),
 
-    HMAC1 = hmac:hmac256(<<"AWS4", SecretAccessKey/binary>>, Datestamp),
-    HMAC2 = hmac:hmac256(HMAC1, ?REGION),
-    HMAC3 = hmac:hmac256(HMAC2, ?SERVICE),
-    hmac:hmac256(HMAC3, <<"aws4_request">>).
+    HMAC1 = gp_chksum:hmac256_digest(<<"AWS4", SecretAccessKey/binary>>, Datestamp),
+    HMAC2 = gp_chksum:hmac256_digest(HMAC1, ?REGION),
+    HMAC3 = gp_chksum:hmac256_digest(HMAC2, ?SERVICE),
+    gp_chksum:hmac256_digest(HMAC3, <<"aws4_request">>).
 
 signature(DerivedKey, STS) ->
     gp_chksum:hmac256(DerivedKey, STS).
