@@ -1,5 +1,7 @@
 -module(gp_chksum).
 
+-include("glacier_proxy.hrl").
+
 %% API
 -export([sha_init/0, sha_update/2, sha_final/1]).
 -export([sha256/1, sha256_digest/1, sha256_init/0, sha256_update/2, sha256_final/1]).
@@ -62,7 +64,7 @@ tree_hash_digest([], NextLevel) ->
 
 
 hexdigest(BinDigest) ->
-    iolist_to_binary([[io_lib:format("~2.16.0b",[X]) || <<X:8>> <= BinDigest]]).
+    ?io2b([[io_lib:format("~2.16.0b",[X]) || <<X:8>> <= BinDigest]]).
 
 
 %% ===================================================================

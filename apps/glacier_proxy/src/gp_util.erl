@@ -13,8 +13,7 @@
 %% ===================================================================
 
 timestamp({{Year, Month, Day}, {Hour, Minute, Second}}) ->
-    list_to_binary(io_lib:format(?TS_FMT,
-            [Year, Month, Day, Hour, Minute, Second])).
+    ?io2b(io_lib:format(?TS_FMT, [Year, Month, Day, Hour, Minute, Second])).
 
 datestamp(Date) ->
     binary:part(timestamp(Date), 0, 8).
