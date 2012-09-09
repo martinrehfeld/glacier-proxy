@@ -27,6 +27,10 @@ stop()  -> application:stop(?MODULE).
 
 start(_StartType, _StartArgs) ->
     ok = lager:start(),
+    ok = application:start(crypto),
+    ok = application:start(public_key),
+    ok = application:start(ssl),
+    ok = application:start(lhttpc),
     ok = application:start(cowboy),
 
     Dispatch = [ {?ANYHOST, [{?ANYPATH, gp_http, []}]} ],

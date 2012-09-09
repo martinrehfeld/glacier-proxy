@@ -2,7 +2,7 @@
 
 %% API
 -export([sha_init/0, sha_update/2, sha_final/1]).
--export([sha256_init/0, sha256_update/2, sha256_final/1]).
+-export([sha256/1, hmac256/2, sha256_init/0, sha256_update/2, sha256_final/1]).
 
 
 %% ===================================================================
@@ -18,6 +18,12 @@ sha_update(Context, Data) ->
 sha_final(Context) ->
     bin_to_hex(crypto:sha_final(Context)).
 
+
+sha256(Data) ->
+    bin_to_hex(erlsha2:sha256(Data)).
+
+hmac256(Key, Data) ->
+    bin_to_hex(hmac:hmac256(Key, Data)).
 
 sha256_init() ->
     erlsha2:sha256_init().
