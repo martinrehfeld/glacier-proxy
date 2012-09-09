@@ -12,6 +12,11 @@ streams of data that do not exist on disk. It acts as a single point of contact
 to initiate new jobs and to keep track of the progress/state of the tasks
 submitted to it.
 
+## Status
+
+Glacier Proxy is still **work in progress** (as in: the pieces are slowly
+coming together, doing README-driven development towards the following specs).
+
 
 ## REST API
 
