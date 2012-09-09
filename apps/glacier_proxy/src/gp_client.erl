@@ -45,6 +45,7 @@ upload_archive() ->
         {<<"x-amz-archive-description">>, <<"Glacier Proxy test.">>},
         {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
         {<<"x-amz-content-sha256">>, ?CONTENT_SHA256},
+        {<<"Content-Type">>, <<"application/octet-stream">>},
         {<<"Authorization">>, gp_aws4_signature:sign(<<"POST">>, ?ENDPOINT, ?PATH, ?VERSION, Date, ?CONTENT_SHA256)}
     ],
 
@@ -102,7 +103,6 @@ upload_archive_update(Context) ->
         {<<"x-amz-sha256-tree-hash">>, ?TREE_HASH},
         {<<"x-amz-content-sha256">>, ?CONTENT_SHA256},
         {<<"Content-Range">>, ?CONTENT_RANGE},
-        {<<"Content-Length">>, ?CONTENT_LENGTH},
         {<<"Content-Type">>, <<"application/octet-stream">>},
         {<<"Authorization">>, gp_aws4_signature:sign(<<"PUT">>, ?ENDPOINT, Path, ?VERSION, Date, ?CONTENT_SHA256)}
     ],
