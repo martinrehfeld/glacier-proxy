@@ -1,5 +1,12 @@
 %%% @doc Helpers for AWS Signature Version 4 Signing Process
 %%% <http://docs.amazonwebservices.com/general/latest/gr/signature-version-4.html>
+%%% NOTE: This module only implements the necessary subset of functionality
+%%%       to issue requests to AWS Glacier, specifically requests are assumed
+%%%       to be well-formed and to contain the correct headers for Glacier,
+%%%       i.e. host;x-amz-date;x-amz-glacier-version and optionally
+%%%       x-amz-content-sha256
+
+
 -module(gp_aws4_signature).
 
 -include("glacier_proxy.hrl").
