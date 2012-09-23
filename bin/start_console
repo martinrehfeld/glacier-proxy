@@ -7,4 +7,4 @@ erl -pa deps/*/ebin apps/*/ebin \
     -boot start_sasl \
     -args_file rel/files/vm.args \
     -s glacier_proxy \
-    -config rel/files/app \
+    -config rel/files/app
