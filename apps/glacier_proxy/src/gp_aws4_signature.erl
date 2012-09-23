@@ -20,23 +20,24 @@
 sign(Method, Host, Path, Version, Date) ->
     SignedHeaders = <<"host;x-amz-date;x-amz-glacier-version">>,
     CR = canonical_request(Method, Host, Path, Version, Date, SignedHeaders),
-    sign(Date, CR, SignedHeaders).
+    sign(Host, Date, CR, SignedHeaders).
 
 sign(Method, Host, Path, Version, Date, ContentSha) ->
     SignedHeaders = <<"host;x-amz-content-sha256;x-amz-date;x-amz-glacier-version">>,
     CR = canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha),
-    sign(Date, CR, SignedHeaders).
+    sign(Host, Date, CR, SignedHeaders).
 
 
 %% ===================================================================
 %% Internal functions
 %% ===================================================================
 
-sign(Date, CanonicalRequest, SignedHeaders) ->
-    STS = string_to_sign(CanonicalRequest, Date),
-    DerivedKey = derived_key(?SECRET_ACCESS_KEY, Date),
+sign(Host, Date, CanonicalRequest, SignedHeaders) ->
+    [Service|_] = binary:split(Host, <<$.>>),
+    STS = string_to_sign(Service, CanonicalRequest, Date),
+    DerivedKey = derived_key(Service, ?SECRET_ACCESS_KEY, Date),
     Signature = signature(DerivedKey, STS),
-    authorization(?ACCESS_KEY, SignedHeaders, Signature, Date).
+    authorization(?ACCESS_KEY, SignedHeaders, Signature, Service, Date).
 
 
 canonical_request(Method, Host, Path, Version, Date, SignedHeaders) ->
@@ -70,23 +71,23 @@ canonical_request(Method, Host, Path, Version, Date, SignedHeaders, ContentSha, 
     <<Part1/binary, Part2/binary, Part3/binary>>.
 
 
-string_to_sign(CR, Date) ->
+string_to_sign(Service, CR, Date) ->
     Hash = gp_chksum:sha256(CR),
     Timestamp = gp_util:timestamp(Date),
     Datestamp = gp_util:datestamp(Date),
 
     <<"AWS4-HMAC-SHA256", ?NEWLINE/binary,
       Timestamp/binary, ?NEWLINE/binary,
-      Datestamp/binary, $/, ?REGION/binary, $/, ?SERVICE/binary, "/aws4_request", ?NEWLINE/binary,
+      Datestamp/binary, $/, ?REGION/binary, $/, Service/binary, "/aws4_request", ?NEWLINE/binary,
       Hash/binary>>.
 
 
-derived_key(SecretAccessKey, Date) ->
+derived_key(Service, SecretAccessKey, Date) ->
     Datestamp = gp_util:datestamp(Date),
 
     HMAC1 = gp_chksum:hmac256_digest(<<"AWS4", SecretAccessKey/binary>>, Datestamp),
     HMAC2 = gp_chksum:hmac256_digest(HMAC1, ?REGION),
-    HMAC3 = gp_chksum:hmac256_digest(HMAC2, ?SERVICE),
+    HMAC3 = gp_chksum:hmac256_digest(HMAC2, Service),
     gp_chksum:hmac256_digest(HMAC3, <<"aws4_request">>).
 
 
@@ -94,11 +95,11 @@ signature(DerivedKey, STS) ->
     gp_chksum:hmac256(DerivedKey, STS).
 
 
-authorization(AccessKey, SignedHeaders, Signature, Date) ->
+authorization(AccessKey, SignedHeaders, Signature, Service, Date) ->
     Datestamp = gp_util:datestamp(Date),
 
     <<"AWS4-HMAC-SHA256 ",
       "Credential=", AccessKey/binary, $/, Datestamp/binary, $/,
-                     ?REGION/binary, $/, ?SERVICE/binary, "/aws4_request,"
-      "SignedHeaders=", SignedHeaders/binary, ",",
+                     ?REGION/binary, $/, Service/binary, "/aws4_request, "
+      "SignedHeaders=", SignedHeaders/binary, ", ",
       "Signature=", Signature/binary>>.
