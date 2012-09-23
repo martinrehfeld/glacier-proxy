@@ -9,9 +9,9 @@
 -define(URL_MULTI_INIT, ?b2l(<<"https://", ?ENDPOINT/binary, ?PATH_MULTI_INIT/binary>>)).
 -define(TIMEOUT, 5000).
 -define(CONTENT_FILE, "rebar").
--define(CONTENT_RANGE, <<"bytes 0-102178/*">>).
--define(CONTENT_LENGTH, <<"102179">>).
--define(CONTENT_SHA256, <<"09daa49651fe4f4a4e7a369d55eef3da7c26f679943d3a2863f8e75b4d80dc13">>).
+-define(CONTENT_RANGE, <<"bytes 0-146278/*">>).
+-define(CONTENT_LENGTH, <<"146279">>).
+-define(CONTENT_SHA256, <<"e049326f0f95e1b91ec35268625f1b8b162b17e34b8224a0c25192330067c6a7">>).
 -define(TREE_HASH, ?CONTENT_SHA256).
 
 
